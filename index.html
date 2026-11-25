@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Purchase Evaluator — วิเคราะห์ความคุ้มค่าและเปรียบเทียบการซื้อ</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- Top Command Header -->
+      <header class="command-header">
+        <div class="header-inner">
+          <div class="header-left">
+            <button
+              id="btn-toggle-drawer"
+              type="button"
+              class="btn btn-ghost"
+              aria-expanded="false"
+              aria-controls="history-drawer"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+              <span>ตัวอย่างและประวัติ</span>
+            </button>
+            <div class="brand-divider" aria-hidden="true"></div>
+            <div class="brand-text">
+              <span class="brand-name">Smart Purchase Evaluator</span>
+              <span class="brand-sub">Deterministic Value &amp; TCO Matrix</span>
+            </div>
+          </div>
+
+          <div class="header-actions">
+            <button id="btn-add-product" type="button" class="btn btn-primary">
+              + เพิ่มสินค้า
+            </button>
+            <button id="btn-save-session" type="button" class="btn">บันทึก</button>
+            <button id="btn-export-json" type="button" class="btn">Export JSON</button>
+            <label class="btn" style="cursor: pointer">
+              Import JSON
+              <input id="input-import-json" type="file" accept=".json" hidden />
+            </label>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Workspace -->
+      <main class="workspace">
+        <!-- Session Title & Segmented Priority Bar -->
+        <section class="decision-toolbar" aria-label="ตั้งค่าการเปรียบเทียบ">
+          <div class="title-block">
+            <input
+              id="session-title"
+              type="text"
+              class="title-input"
+              value="การเปรียบเทียบสินค้า"
+              aria-label="ชื่อการเปรียบเทียบ"
+            />
+            <span id="product-count-label" class="count-label">สินค้า 0 / 5 รายการ</span>
+          </div>
+
+          <div class="priority-group" role="radiogroup" aria-label="เกณฑ์การจัดอันดับความคุ้มค่า">
+            <button type="button" class="seg-btn active" data-priority="NET_CASH" aria-checked="true" role="radio">
+              ราคาสุทธิต่ำสุด
+            </button>
+            <button type="button" class="seg-btn" data-priority="TRUE_UNIT_COST" aria-checked="false" role="radio">
+              ต้นทุนสารสำคัญ
+            </button>
+            <button type="button" class="seg-btn" data-priority="TCO_3Y" aria-checked="false" role="radio">
+              TCO 3 ปีต่ำสุด
+            </button>
+            <button type="button" class="seg-btn" data-priority="DURABILITY" aria-checked="false" role="radio">
+              ความทนทานสูงสุด
+            </button>
+          </div>
+        </section>
+
+        <div id="toast" class="toast" role="status" aria-live="polite" style="display: none"></div>
+
+        <!-- Real Computed Verdict Strip -->
+        <section id="verdict-banner" class="verdict-banner" style="display: none" aria-live="polite"></section>
+
+        <!-- Unified Decision Matrix -->
+        <section id="matrix-container" aria-label="ตารางเปรียบเทียบสินค้า"></section>
+      </main>
+    </div>
+
+    <!-- Collapsible Presets & History Drawer -->
+    <div id="drawer-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
+    <aside
+      id="history-drawer"
+      class="drawer hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="ตัวอย่างและประวัติการเปรียบเทียบ"
+    >
+      <div class="drawer-header">
+        <h2 class="drawer-title">คลังเปรียบเทียบ</h2>
+        <button id="btn-close-drawer" type="button" class="btn btn-sm" aria-label="ปิดแถบข้าง">
+          ปิด
+        </button>
+      </div>
+
+      <div class="drawer-body">
+        <div class="drawer-section">
+          <div class="drawer-label">ตัวอย่างข้อมูลจริง (Demo Presets)</div>
+          <div id="preset-list" class="nav-list"></div>
+        </div>
+
+        <div class="drawer-section">
+          <div class="drawer-label">
+            <span>ประวัติที่บันทึกไว้</span>
+            <button id="btn-new-session" type="button" class="btn btn-sm">+ สร้างใหม่</button>
+          </div>
+          <div id="saved-list" class="nav-list"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Product Editor Modal -->
+    <div id="product-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 id="modal-title" class="modal-title">เพิ่มสินค้าเข้าตารางเปรียบเทียบ</h2>
+          <button id="btn-close-modal" type="button" class="btn btn-sm" aria-label="ปิดหน้าต่าง">ปิด</button>
+        </div>
+
+        <div class="modal-tabs" role="tablist">
+          <button type="button" class="tab-btn active" data-tab="PRICING" role="tab">1. ราคาและ 90 วัน</button>
+          <button type="button" class="tab-btn" data-tab="COUPONS" role="tab">2. คูปองส่วนลด</button>
+          <button type="button" class="tab-btn" data-tab="UNIT_TCO" role="tab">3. ปริมาณและ TCO</button>
+          <button type="button" class="tab-btn" data-tab="SPECS_AI" role="tab">4. สเปกและรีวิว</button>
+        </div>
+
+        <form id="product-form" class="modal-body">
+          <!-- Tab 1: Pricing -->
+          <div class="tab-panel" data-panel="PRICING">
+            <div class="field">
+              <label for="f-name">ชื่อสินค้า *</label>
+              <input id="f-name" type="text" required placeholder="ระบุชื่อรุ่นและยี่ห้อสินค้า" />
+            </div>
+            <div class="field" style="margin-top: 12px">
+              <label for="f-url">ลิงก์สินค้า (ถ้ามี)</label>
+              <input id="f-url" type="url" placeholder="https://..." />
+            </div>
+            <div class="grid-2" style="margin-top: 12px">
+              <div class="field">
+                <label for="f-listed">ราคาขายปัจจุบัน (บาท)</label>
+                <input id="f-listed" type="number" min="0" step="0.01" value="1000" />
+              </div>
+              <div class="field">
+                <label for="f-median">ราคากลางย้อนหลัง 90 วัน (Median)</label>
+                <input id="f-median" type="number" min="0" step="0.01" value="1000" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 2: Coupons -->
+          <div class="tab-panel hidden" data-panel="COUPONS">
+            <div class="panel-header-row">
+              <span class="hint-text">
+                ระบบคำนวณหาชุดคูปองที่ทำให้ยอดจ่ายเงินสดสุทธิต่ำที่สุดโดยแยก Cashback ออกจากส่วนลดเงินสด
+              </span>
+              <button id="btn-add-coupon" type="button" class="btn btn-sm">+ เพิ่มคูปอง</button>
+            </div>
+            <div id="coupon-rows" class="stack-list"></div>
+          </div>
+
+          <!-- Tab 3: Unit & TCO -->
+          <div class="tab-panel hidden" data-panel="UNIT_TCO">
+            <div class="grid-3">
+              <div class="field">
+                <label for="f-qty">ปริมาณสุทธิ</label>
+                <input id="f-qty" type="number" min="0.001" step="any" value="1" />
+              </div>
+              <div class="field">
+                <label for="f-unit">หน่วยวัด</label>
+                <select id="f-unit">
+                  <option value="g">กรัม (g)</option>
+                  <option value="kg">กิโลกรัม (kg)</option>
+                  <option value="mg">มิลลิกรัม (mg)</option>
+                  <option value="ml">มิลลิลิตร (ml)</option>
+                  <option value="l">ลิตร (l)</option>
+                  <option value="pcs" selected>ชิ้น (pcs)</option>
+                  <option value="uses">ครั้งที่ใช้ได้ (uses)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="f-ratio">ความเข้มข้นสารสำคัญ (%)</label>
+                <input id="f-ratio" type="number" min="1" max="100" value="100" />
+              </div>
+            </div>
+
+            <div class="divider-top">
+              <label class="checkbox-label">
+                <input id="f-tco-enabled" type="checkbox" />
+                คำนวณต้นทุนแฝงตลอดอายุการใช้งาน (ค่าไฟและอะไหล่สิ้นเปลือง)
+              </label>
+
+              <div id="tco-fields" class="card-box" style="margin-top: 12px; display: none">
+                <div class="grid-3">
+                  <div class="field">
+                    <label for="f-watt">กำลังไฟ (Watt)</label>
+                    <input id="f-watt" type="number" min="0" value="40" />
+                  </div>
+                  <div class="field">
+                    <label for="f-hours">ชั่วโมงใช้งาน/วัน</label>
+                    <input id="f-hours" type="number" min="0" max="24" value="8" />
+                  </div>
+                  <div class="field">
+                    <label for="f-rate">ค่าไฟ (บาท/หน่วย)</label>
+                    <input id="f-rate" type="number" min="0" step="0.1" value="4.5" />
+                  </div>
+                </div>
+                <div class="panel-header-row" style="margin-top: 8px">
+                  <span style="font-size: 12px; font-weight: 600">อะไหล่และวัสดุสิ้นเปลือง</span>
+                  <button id="btn-add-consumable" type="button" class="btn btn-sm">+ เพิ่มอะไหล่</button>
+                </div>
+                <div id="consumable-rows" class="stack-list"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 4: Specs & Reviews -->
+          <div class="tab-panel hidden" data-panel="SPECS_AI">
+            <div class="field">
+              <label for="f-specs-text">ข้อมูลสเปกทางเทคนิค (พิมพ์รูปแบบ "หัวข้อ: ค่า" ทีละบรรทัด)</label>
+              <textarea id="f-specs-text" rows="4" placeholder="CADR: 230 m³/h&#10;กำลังไฟ: 27 W"></textarea>
+            </div>
+            <div class="field" style="margin-top: 12px">
+              <label for="f-reviews-text">ข้อความรีวิวลูกค้า (คัดกรองเฉพาะสั่งซื้อจริง + รูป/วิดีโอ + ใช้งาน ≥14 วัน)</label>
+              <textarea id="f-reviews-text" rows="4" placeholder="วางข้อความรีวิวจากหน้าสินค้า..."></textarea>
+            </div>
+            <div class="extract-row">
+              <input
+                id="f-gemini-key"
+                type="password"
+                style="flex: 1"
+                placeholder="Gemini API Key (ไม่ใส่ก็ได้ จะใช้โหมด Rule-Based)"
+              />
+              <button id="btn-extract-ai" type="button" class="btn btn-sm">
+                สกัดข้อมูล Zero-Hallucination
+              </button>
+            </div>
+            <div id="extract-status" class="extract-status"></div>
+          </div>
+        </form>
+
+        <div class="modal-footer">
+          <button id="btn-cancel-modal" type="button" class="btn">ยกเลิก</button>
+          <button id="btn-submit-product" type="submit" form="product-form" class="btn btn-primary">
+            คำนวณและบันทึกสินค้า
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./js/app.js"></script>
+  </body>
+</html>
